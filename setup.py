@@ -17,5 +17,5 @@ setup(
         'console_scripts': ['xmbedinit= xmbedinit.xmbedinit:main'],
     },
     zip_safe=False,
-    install_requires=['']
+    install_requires=['pathlib', 'jinja2']
 )
