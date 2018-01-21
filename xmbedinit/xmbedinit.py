@@ -252,7 +252,8 @@ class Parser():
 
 def main():
     argparser = argparse.ArgumentParser(
-        description='This tool will help local development of mbed'
+        description='This tool will help local development of mbed',
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter
     )
     argparser.add_argument(
         '-m', '--target',
