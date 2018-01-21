@@ -33,9 +33,13 @@ def set_verbose(value):
 
 def get_template(name):
     root = resource_filename(__name__, 'templates')
-    template = jinja2.Environment(
-        loader=jinja2.FileSystemLoader(root)
-    ).get_template(name)
+    try:
+        template = jinja2.Environment(
+            loader=jinja2.FileSystemLoader(root)
+        ).get_template(name)
+    except:
+        print(name)
+        raise
 
     return template
 
@@ -44,8 +48,8 @@ def save(text, path):
     path = Path(path)
     if path.suffix == '.bat':
         text = text.replace('\n', '\r\n')
-    with path.open('w', encoding='utf8') as f:
-        f.write(text)
+    with path.open('wb') as f:
+        f.write(text.encode('utf8'))
 
     if path.suffix == '.sh' and os.name != 'nt':
         subprocess.check_call('chmod +x "{}" '.format(path), shell=True)
@@ -348,7 +352,8 @@ def main():
         'build-release.sh',
         'build-compile_commands.sh',
         'xmbedinit.log',
-        'CMakeLists-template.txt',
+        'CMakeLists.txt',
+        'main.cpp',
     ]
     render(args, dest, templates)
 
