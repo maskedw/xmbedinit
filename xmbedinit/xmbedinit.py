@@ -347,7 +347,7 @@ def main():
         'build-debug.sh',
         'build-release.sh',
         'build-compile_commands.sh',
-        'xdbinit.log',
+        'xmbedinit.log',
         'CMakeLists-template.txt',
     ]
     render(args, dest, templates)

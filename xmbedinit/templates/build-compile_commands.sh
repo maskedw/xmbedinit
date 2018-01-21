@@ -23,4 +23,4 @@ cmake "${thisdir}" \
     -DCMAKE_TOOLCHAIN_FILE=CMake/toolchain-arm-none-eabi-gcc.cmake \
     -DCMAKE_EXPORT_COMPILE_COMMANDS=1 \
     -DCMAKE_BUILD_TYPE="${buildtype}" \
-    -G "Ninja" && cp compile_command.json "$thisdir"
+    -G "Ninja" && cp compile_commands.json "$thisdir"

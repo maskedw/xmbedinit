@@ -4,4 +4,4 @@
 @ECHO OFF
 
 cd %~dp0
-bash.exe -c "BUILD_TYPE=Debug ./build.sh %*"
+bash.exe -c "BUILD_TYPE=Release ./build.sh %*"
