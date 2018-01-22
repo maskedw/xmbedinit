@@ -13,7 +13,7 @@ else
 fi
 
 cd "$thisdir"
-builddir=".compile_command-${buildtype}"
+builddir=".compile_commands-${buildtype}"
 if [ ! -d "$builddir" ]; then
     mkdir -p "$builddir"
 fi
