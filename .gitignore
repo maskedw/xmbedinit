@@ -17,5 +17,4 @@ tags
 *.out
 *.bin
 *.bak*
-*.log
 *.orig
