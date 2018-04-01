@@ -108,6 +108,7 @@ class Parser():
             config_definitions = []
             for l in lines:
                 m = regex.match(l)
+                is_braces = False
                 if m:
                     name = m.group('name')
                     value = m.group('value').strip()
@@ -115,6 +116,11 @@ class Parser():
                     x = '-D' + name
                     if value:
                         x += '=' + value
+                        if value.startswith('{'):
+                            is_braces = True
+
+                    if is_braces:
+                        x = '"{}"'.format(x)
                     # Padding for alignment
                     if len(x) < 55:
                         x += ' ' * (55 - len(x))
