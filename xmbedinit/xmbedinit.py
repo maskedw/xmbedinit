@@ -6,7 +6,9 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import with_statement
 
+import pkg_resources
 from pkg_resources import resource_filename
+
 import os
 import sys
 import re
@@ -282,9 +284,20 @@ def main():
         default=False,
         action='store_true',
         help='Verbose output')
+    argparser.add_argument(
+        '--version',
+        required=False,
+        default=False,
+        action='store_true',
+        help='Print version info')
     args = argparser.parse_args()
-    set_verbose(args.verbose)
 
+    if args.version:
+        print('xmbedinit {}'.format(
+            pkg_resources.require('xmbedinit')[0].version))
+        sys.exit()
+
+    set_verbose(args.verbose)
     dest = Path(args.dest).resolve()
     if not dest.exists():
         sys.exit('"{}" is not exists'.format(dest))
