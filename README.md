@@ -22,7 +22,7 @@ This tool will help local development of mbed.
 
 ## Installation
 ```sh
-$ pip install git+https://github.com/maskedw/xmbedinit
+$ pip install git+https://github.com/maskedw/xmbedinit -U
 ```
 
 ## Usage
