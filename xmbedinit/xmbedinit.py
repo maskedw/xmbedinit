@@ -126,6 +126,7 @@ class Parser():
                         x += ' ' * (55 - len(x))
                     x += ' #' + comment
                     config_definitions.append(x)
+            config_definitions = sorted(config_definitions)
             self.config_definitions = config_definitions
 
     def find_headers(self, include_dirs):
@@ -154,6 +155,7 @@ class Parser():
             m = regex.match(v)
             if m:
                 result.append(m.group(1))
+        result = sorted(result)
         return result
 
     def get_values(self, lines, var_name):
