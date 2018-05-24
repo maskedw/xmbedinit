@@ -286,16 +286,10 @@ def main():
         help='Verbose output')
     argparser.add_argument(
         '--version',
-        required=False,
-        default=False,
-        action='store_true',
-        help='Print version info')
-    args = argparser.parse_args()
-
-    if args.version:
-        print('xmbedinit {}'.format(
+        action='version',
+        version='%(prog)s {}'.format(
             pkg_resources.require('xmbedinit')[0].version))
-        sys.exit()
+    args = argparser.parse_args()
 
     set_verbose(args.verbose)
     dest = Path(args.dest).resolve()
