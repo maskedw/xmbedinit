@@ -165,8 +165,12 @@ class Parser():
         result = []
         for line in lines:
             m = regex.match(line)
-            if m:
-                result.append(m.group(1))
+            if not m:
+                continue
+            value = m.group(1)
+            if value in result:
+                continue
+            result.append(value)
         return result
 
     def get_paths(self, lines, var_name):
@@ -217,8 +221,7 @@ class Parser():
 
     def get_warning_opts(self, lines):
         result = []
-        values = self.get_values(lines, 'CC')[0]
-        values = values.split(' ')
+        values = self.get_values(lines, 'CXX_FLAGS')
         for v in values:
             v = self.strip_quote(v)
             regex = re.compile('^(-W.*)')
@@ -229,8 +232,7 @@ class Parser():
 
     def get_extra_opts(self, lines):
         result = []
-        values = self.get_values(lines, 'CC')[0]
-        values = values.split(' ')
+        values = self.get_values(lines, 'CXX_FLAGS')
         for v in values:
             v = self.strip_quote(v)
             regex = re.compile('^(-f.*)')
@@ -241,8 +243,7 @@ class Parser():
 
     def get_arch_opts(self, lines):
         result = []
-        values = self.get_values(lines, 'CC')[0]
-        values = values.split(' ')
+        values = self.get_values(lines, 'CXX_FLAGS')
         for v in values:
             v = self.strip_quote(v)
             arch_opts = [
