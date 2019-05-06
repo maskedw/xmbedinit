@@ -26,9 +26,6 @@ add_definitions(
     -D__STDC_CONSTANT_MACROS
 )
 
-# C++11
-# set(cxx_std_opt -std=gnu++11)
-
 # C++98
 set(cxx_std_opt -std=gnu++98)
 
@@ -37,12 +34,12 @@ set(c_std_opt -std=gnu99)
 
 set(arch_opts           ${mbed_arch_opts})
 set(warning_opts        -Wno-sign-compare ${mbed_warning_opts})
-set(extra_opts          ${mbed_extra_opts})
-set(cxx_extra_opts      -fno-rtti)
-set(comman_flags        -g3 ${arch_opts} ${warning_opts} ${extra_opts})
-
-list(APPEND cflags      ${comman_flags} ${c_std_opt})
+set(c_extra_opts        ${mbed_c_extra_opts})
+set(cxx_extra_opts      ${mbed_cxx_extra_opts})
+set(comman_flags        -g3 ${arch_opts} ${warning_opts})
+list(APPEND cflags      ${comman_flags} ${c_std_opt} ${c_extra_opts})
 list(APPEND cxxflags    ${comman_flags} ${cxx_std_opt} ${cxx_extra_opts})
+
 list(APPEND asmflags    ${mbed_asm_flags})
 list(APPEND ldflags
     ${mbed_linker_flags}

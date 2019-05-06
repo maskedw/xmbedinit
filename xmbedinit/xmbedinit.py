@@ -12,12 +12,14 @@ from pkg_resources import resource_filename
 import os
 import sys
 import re
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 import argparse
 import errno
 import shutil
 import subprocess
 import jinja2
+import json
+import pyaml
 
 
 verbose = False
@@ -84,25 +86,142 @@ def export_files(dest, flielist):
         shutil.copyfile(str(f), str(d))
 
 
-class Parser():
-    def __init__(self):
-        self.lines = None
+def make_all_library_info(base_dir):
+    result = []
+    for x in Path(base_dir).rglob('mbed_lib.json'):
+        test_dir = str(Path(base_dir, 'tools', 'test'))
+        if os.path.commonprefix([str(x), test_dir]) == test_dir:
+            vlog('without test-library:{}'.format(x))
+            continue
+        vlog('found library: {}'.format(x))
 
-    def parse_makefile(self, makefile):
+        with x.open() as f:
+            try:
+                info = json.load(f)
+            except json.decoder.JSONDecodeError:
+                continue
+            info['dir'] = x.parent
+            result.append(info)
+    return result
+
+
+class UnusedLibraryFilter():
+    def filterd(self, build_info, unused_libraries):
+        filterd_build_info = BuildInfo()
+        filterd_build_info.definitions = build_info.definitions
+        filterd_build_info.arch_opts = build_info.arch_opts
+        filterd_build_info.linker_flags = build_info.linker_flags
+        filterd_build_info.link_libraries = build_info.link_libraries
+        filterd_build_info.c_extra_opts = build_info.c_extra_opts
+        filterd_build_info.cxx_extra_opts = build_info.cxx_extra_opts
+        filterd_build_info.warning_opts = build_info.warning_opts
+
+        ##############################
+        # filter config_definitions
+        regex = re.compile(r'library:([-_a-zA-Z0-9]+)')
+        unused_library_names = [x['name'] for x in unused_libraries]
+        for x in build_info.config_definitions:
+            m = regex.search(x)
+            if not m:
+                filterd_build_info.config_definitions.append(x)
+                continue
+
+            x_library_name = m.group(1)
+            if x_library_name in unused_library_names:
+                filterd_build_info.removed_config_definitions.append(
+                    {'removed_by': x_library_name, 'value': x})
+            else:
+                filterd_build_info.config_definitions.append(x)
+
+        ##############################
+        # filter include_dirs
+        result = []
+        for x in build_info.include_dirs:
+            for unused_info in unused_libraries:
+                unused_dir = str(unused_info['dir'])
+                if os.path.commonprefix([str(x), unused_dir]) == unused_dir:
+                    filterd_build_info.removed_include_dirs.append(
+                        {'removed_by': unused_info['name'], 'value': x})
+                    break
+            else:
+                filterd_build_info.include_dirs.append(x)
+
+        ##############################
+        # filter sources
+        for x in build_info.sources:
+            x_parent = str(x.parent)
+            for unused_info in unused_libraries:
+                unused_dir = str(unused_info['dir'])
+                if os.path.commonprefix([x_parent, unused_dir]) == unused_dir:
+                    filterd_build_info.removed_sources.append(
+                        {'removed_by': unused_info['name'], 'value': x})
+                    break
+            else:
+                filterd_build_info.sources.append(x)
+
+        ##############################
+        # filter headers
+        for x in build_info.headers:
+            x_parent = str(x.parent)
+            for unused_info in unused_libraries:
+                unused_dir = str(unused_info['dir'])
+                if os.path.commonprefix([x_parent, unused_dir]) == unused_dir:
+                    filterd_build_info.removed_headers.append(
+                        {'removed_by': unused_info['name'], 'value': x})
+                    break
+            else:
+                filterd_build_info.headers.append(x)
+
+
+        return filterd_build_info
+
+
+class BuildInfo():
+    def __init__(self):
+        self.sources = []
+        self.include_dirs = []
+        self.headers = []
+        self.definitions = []
+        self.arch_opts = []
+        self.linker_flags = []
+        self.link_libraries = []
+        self.c_extra_opts = []
+        self.cxx_extra_opts = []
+        self.warning_opts = []
+        self.config_definitions = []
+
+        self.removed_sources = []
+        self.removed_headers = []
+        self.removed_config_definitions = []
+        self.removed_include_dirs = []
+
+
+class Parser():
+    def parse_makefile(self, makefile, build_info):
+        if build_info is None:
+            build_info = BuildInfo()
+
         with open(makefile) as f:
             lines = f.read().splitlines()
-        objects = self.get_paths(lines, 'OBJECTS')
-        self.sources = self.find_matching_suffix(objects, ['.c', '.cpp', '.S'])
-        self.include_dirs = self.get_paths(lines, 'INCLUDE_PATHS')
-        self.headers = self.find_headers(self.include_dirs)
-        self.definitions = self.get_definitions(lines, 'CXX_FLAGS')
-        self.arch_opts = self.get_arch_opts(lines)
-        self.linker_flags = self.get_linker_flags(lines)
-        self.link_libraries = self.get_link_libraries(lines)
-        self.extra_opts = self.get_extra_opts(lines)
-        self.warning_opts = self.get_warning_opts(lines)
 
-    def parse_mbed_config(self, mbed_config):
+        objects                   = self._get_paths(lines, 'OBJECTS')
+        build_info.sources        = self._find_matching_suffix(objects, ['.c', '.cpp', '.S'])
+        build_info.include_dirs   = self._get_paths(lines, 'INCLUDE_PATHS')
+        build_info.headers        = self._find_headers(build_info.include_dirs)
+        build_info.definitions    = self._get_definitions(lines, 'CXX_FLAGS')
+        build_info.arch_opts      = self._get_arch_opts(lines)
+        build_info.linker_flags   = self._get_linker_flags(lines)
+        build_info.link_libraries = self._get_link_libraries(lines)
+        build_info.cxx_extra_opts = self._get_cxx_extra_opts(lines)
+        build_info.c_extra_opts   = self._get_c_extra_opts(lines)
+        build_info.warning_opts   = self._get_warning_opts(lines)
+
+        return build_info
+
+    def parse_mbed_config(self, mbed_config, build_info):
+        if build_info is None:
+            build_info = BuildInfo()
+
         with open(mbed_config) as f:
             lines = f.read().splitlines()
             regex = re.compile(
@@ -128,19 +247,21 @@ class Parser():
                         x += ' ' * (55 - len(x))
                     x += ' #' + comment
                     config_definitions.append(x)
-            config_definitions = sorted(config_definitions)
-            self.config_definitions = config_definitions
+            build_info.config_definitions = sorted(config_definitions)
 
-    def find_headers(self, include_dirs):
+        return build_info
+
+    def _find_headers(self, include_dirs):
         result = []
         globs = ['*.h', '*.hpp']
         for d in include_dirs:
             for g in globs:
                 for header in Path(d).glob(g):
                     result.append(header)
+        result = [Path(x) for x in result]
         return result
 
-    def find_matching_suffix(self, filelist, suffixes):
+    def _find_matching_suffix(self, filelist, suffixes):
         result = []
         for f in filelist:
             for s in suffixes:
@@ -149,8 +270,8 @@ class Parser():
                     result.append(x)
         return result
 
-    def get_definitions(self, lines, var_name):
-        values = self.get_values(lines, var_name)
+    def _get_definitions(self, lines, var_name):
+        values = self._get_values(lines, var_name)
         regex = re.compile(r'^(-D.*)')
         result = []
         for v in values:
@@ -160,7 +281,7 @@ class Parser():
         result = sorted(result)
         return result
 
-    def get_values(self, lines, var_name):
+    def _get_values(self, lines, var_name):
         regex = re.compile('^' + var_name + r'\s*[+:]*\=\s*(.*)')
         result = []
         for line in lines:
@@ -173,8 +294,8 @@ class Parser():
             result.append(value)
         return result
 
-    def get_paths(self, lines, var_name):
-        tmp = self.get_values(lines, var_name)
+    def _get_paths(self, lines, var_name):
+        tmp = self._get_values(lines, var_name)
         result = []
         for x in tmp:
             pos = x.find('mbed-os')
@@ -189,11 +310,12 @@ class Parser():
                 if skip:
                     continue
                 result.append(x)
+        result = [Path(x) for x in result]
         return result
 
-    def get_link_libraries(self, lines):
+    def _get_link_libraries(self, lines):
         result = []
-        values = self.get_values(lines, 'LD_SYS_LIBS')[0].split(' ')
+        values = self._get_values(lines, 'LD_SYS_LIBS')[0].split(' ')
         regex = re.compile('^-l(.*)')
         for v in values:
             m = regex.match(v)
@@ -201,9 +323,9 @@ class Parser():
                 result.append(m.group(1))
         return result
 
-    def get_linker_flags(self, lines):
+    def _get_linker_flags(self, lines):
         result = []
-        values = self.get_values(lines, 'LD_FLAGS')[0]
+        values = self._get_values(lines, 'LD_FLAGS')[0]
         values = values.split(' ')
         regex = re.compile('^(-Wl,.*)')
         for v in values:
@@ -212,40 +334,51 @@ class Parser():
                 result.append(m.group(1))
         return result
 
-    def strip_quote(self, str_):
+    def _strip_quote(self, str_):
         is_quote_single = str_.startswith("'") and str_.endswith("'")
         is_quote_double = str_.startswith('"') and str_.endswith('"')
         if is_quote_single or is_quote_double:
             str_ = str_[1:-1]
         return str_
 
-    def get_warning_opts(self, lines):
+    def _get_warning_opts(self, lines):
         result = []
-        values = self.get_values(lines, 'CXX_FLAGS')
+        values = self._get_values(lines, 'CXX_FLAGS')
         for v in values:
-            v = self.strip_quote(v)
+            v = self._strip_quote(v)
             regex = re.compile('^(-W.*)')
             m = regex.match(v)
             if m:
                 result.append(m.group(1))
         return result
 
-    def get_extra_opts(self, lines):
+    def _get_cxx_extra_opts(self, lines):
         result = []
-        values = self.get_values(lines, 'CXX_FLAGS')
+        values = self._get_values(lines, 'CXX_FLAGS')
         for v in values:
-            v = self.strip_quote(v)
+            v = self._strip_quote(v)
             regex = re.compile('^(-f.*)')
             m = regex.match(v)
             if m:
                 result.append(m.group(1))
         return result
 
-    def get_arch_opts(self, lines):
+    def _get_c_extra_opts(self, lines):
         result = []
-        values = self.get_values(lines, 'CXX_FLAGS')
+        values = self._get_values(lines, 'C_FLAGS')
         for v in values:
-            v = self.strip_quote(v)
+            v = self._strip_quote(v)
+            regex = re.compile('^(-f.*)')
+            m = regex.match(v)
+            if m:
+                result.append(m.group(1))
+        return result
+
+    def _get_arch_opts(self, lines):
+        result = []
+        values = self._get_values(lines, 'CXX_FLAGS')
+        for v in values:
+            v = self._strip_quote(v)
             arch_opts = [
                 r'^(-mthumb)',
                 r'^(-mcpu\=.*)',
@@ -325,35 +458,71 @@ def main():
 
     vlog('Parse Files ...')
     parser = Parser()
-    parser.parse_makefile('Makefile')
-    parser.parse_mbed_config('mbed_config.h')
+    build_info = parser.parse_makefile('Makefile', None)
+    parser.parse_mbed_config('mbed_config.h', build_info)
 
     vlog('Copy files ...')
-    export_files(dest, parser.headers)
-    export_files(dest, parser.sources)
+    export_files(dest, build_info.headers)
+    export_files(dest, build_info.sources)
     shutil.copyfile(
         'BUILD/{}/GCC_ARM/.link_script.ld'.format(mbed_target),
         str(dest.joinpath('linker_script.ld')))
 
+    all_library_info = make_all_library_info('mbed-os')
+    use_libraries = [
+        'targets',
+        'platform',
+        'rtos',
+        'cmsis',
+        'drivers',
+        'events'
+    ]
+
+    unused_libraries = [
+        x for x in all_library_info
+        if x['name'] not in use_libraries]
+
+    build_info = UnusedLibraryFilter().filterd(
+        build_info, unused_libraries)
+
     # ----------------------------------------
     cmake_dir = dest.joinpath('CMake')
     mkdir_p(str(cmake_dir))
-    args = {}
 
+    b = build_info
+    b.include_dirs = [Path(x).as_posix() for x in b.include_dirs]
+    b.sources = [Path(x).as_posix() for x in b.sources]
+    b.headers = [Path(x).as_posix() for x in b.headers]
+    for x in b.removed_sources:
+        x['value'] = Path(x['value']).as_posix()
+    for x in b.removed_headers:
+        x['value'] = Path(x['value']).as_posix()
+    for x in b.removed_include_dirs:
+        x['value'] = Path(x['value']).as_posix()
+
+    args = {}
     args['project_name'] = dest.stem
     args['url'] = 'https://github.com/ARMmbed/mbed-os.git'
     args['tag'] = mbed_tag
     args['target'] = mbed_target
-    args['warning_opts'] = parser.warning_opts
-    args['arch_opts'] = parser.arch_opts
-    args['extra_opts'] = parser.extra_opts
-    args['include_dirs'] = [Path(x).as_posix() for x in parser.include_dirs]
-    args['definitions'] = parser.definitions
-    args['link_libraries'] = parser.link_libraries
-    args['linker_flags'] = parser.linker_flags
-    args['sources'] = [Path(x).as_posix() for x in parser.sources]
-    args['headers'] = [Path(x).as_posix() for x in parser.headers]
-    args['config_definitions'] = parser.config_definitions
+    args['warning_opts'] = build_info.warning_opts
+    args['arch_opts'] = build_info.arch_opts
+    args['c_extra_opts'] = build_info.c_extra_opts
+    args['cxx_extra_opts'] = build_info.cxx_extra_opts
+    args['include_dirs'] = build_info.include_dirs
+    args['definitions'] = build_info.definitions
+    args['link_libraries'] = build_info.link_libraries
+    args['linker_flags'] = build_info.linker_flags
+    args['sources'] = build_info.sources
+    args['headers'] = build_info.headers
+    args['config_definitions'] = build_info.config_definitions
+    args['removed_sources'] = build_info.removed_sources
+    args['removed_headers'] = build_info.removed_headers
+    args['removed_config_definitions'] = build_info.removed_config_definitions
+    args['removed_include_dirs'] = build_info.removed_include_dirs
+
+    if verbose:
+        vlog(pyaml.dump(args))
 
     templates = [
         'mbed.cmake',

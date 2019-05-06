@@ -7,12 +7,6 @@ if(CMAKE_BUILD_TYPE STREQUAL "Debug")
     )
 endif()
 
-set(mbed_config_definitions
-{%- for x in config_definitions %}
-    {{ x }}
-{%- endfor %}
-)
-
 set(mbed_warning_opts
 {%- for x in warning_opts %}
     {{ x }}
@@ -25,24 +19,23 @@ set(mbed_arch_opts
 {%- endfor %}
 )
 
-set(mbed_extra_opts
-{%- for x in extra_opts %}
+set(mbed_cxx_extra_opts
+{%- for x in cxx_extra_opts %}
     {{ x }}
 {%- endfor %}
 )
 
+set(mbed_c_extra_opts
+{%- for x in c_extra_opts %}
+    {{ x }}
+{%- endfor %}
+)
 set(mbed_asm_flags
     -x
     assembler-with-cpp
     ${mbed_arch_opts}
     ${mbed_warning_opts}
-    ${mbed_extra_opts}
-)
-
-include_directories(
-{%- for x in include_dirs %}
-    {{ x }}
-{%- endfor %}
+    ${mbed_c_extra_opts}
 )
 
 set(mbed_link_libraries
@@ -57,6 +50,24 @@ set(mbed_linker_flags
 {%- endfor %}
 )
 
+set(mbed_config_definitions
+{%- for x in config_definitions %}
+    {{ x }}
+{%- endfor %}
+{%- for x in removed_config_definitions %}
+    # lib:{{ x.removed_by }} {{ x.value }}
+{%- endfor %}
+)
+
+include_directories(
+{%- for x in include_dirs %}
+    {{ x }}
+{%- endfor %}
+{%- for x in removed_include_dirs%}
+    # lib:{{ x.removed_by }} {{ x.value }}
+{%- endfor %}
+)
+
 add_definitions(
     ${mbed_config_definitions}
 {%- for x in definitions %}
@@ -68,10 +79,7 @@ set(mbed_sources
 {%- for x in sources %}
     {{ x }}
 {%- endfor %}
-)
-
-set(mbed_headers
-{%- for x in headers %}
-    {{ x }}
+{%- for x in removed_sources %}
+    # lib:{{ x.removed_by }} {{ x.value }}
 {%- endfor %}
 )
