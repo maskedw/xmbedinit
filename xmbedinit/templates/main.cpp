@@ -5,7 +5,7 @@ Serial pc(USBTX, USBRX);
 
 int main()
 {
-    pc.printf("{% include 'generated_by.txt' %}");
+    pc.printf("{% include 'generated_by.txt' %}\n");
     while(1)
     {
         myled = 1;
