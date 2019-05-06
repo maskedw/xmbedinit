@@ -12,7 +12,7 @@ This tool will help local development of mbed.
 + `*nix`
 
 ## Requirement
-+ Python2.7(Because mbed-cli only supports Python2)
++ Python2.7 or 3.x
 + Git
 + [mbed-cli](https://github.com/ARMmbed/mbed-cli)
 + [GNU Arm Embedded Toolchain](https://developer.arm.com/open-source/gnu-toolchain/gnu-rm/downloads)
