@@ -4,7 +4,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='xmbedinit',
-    version='0.1.1',
+    version='0.2.0',
     description='This tool will help local development of mbed',
     long_description='',
     author='MaskedW',
@@ -17,5 +17,5 @@ setup(
         'console_scripts': ['xmbedinit= xmbedinit.xmbedinit:main'],
     },
     zip_safe=False,
-    install_requires=['pathlib', 'jinja2']
+    install_requires=['pathlib', 'jinja2', 'pyaml', 'mbed-cli']
 )
