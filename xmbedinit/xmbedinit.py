@@ -253,11 +253,13 @@ class Parser():
 
     def _find_headers(self, include_dirs):
         result = []
-        globs = ['*.h', '*.hpp']
+        header_suffixes = ['', '.h', '.hpp']
         for d in include_dirs:
-            for g in globs:
-                for header in Path(d).glob(g):
-                    result.append(header)
+            if not d.exists():
+                continue
+            for f in [x for x in d.iterdir() if x.is_file()]:
+                if f.suffix in header_suffixes:
+                    result.append(f)
         result = [Path(x) for x in result]
         return result
 
@@ -473,6 +475,7 @@ def main():
         'targets',
         'platform',
         'rtos',
+        'rtos-api',
         'cmsis',
         'drivers',
         'events'

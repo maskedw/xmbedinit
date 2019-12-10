@@ -4,7 +4,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='xmbedinit',
-    version='0.2.0',
+    version='0.3.0',
     description='This tool will help local development of mbed',
     long_description='',
     author='MaskedW',

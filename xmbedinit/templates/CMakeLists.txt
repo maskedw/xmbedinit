@@ -5,10 +5,12 @@ set(executable {{ project_name }})
 enable_language(C CXX ASM)
 
 set(cross                   arm-none-eabi-)
-set(CMAKE_C_COMPILER        ccache)
-set(CMAKE_CXX_COMPILER      ccache)
-set(CMAKE_C_COMPILER_ARG1   ${cross}gcc)
-set(CMAKE_CXX_COMPILER_ARG1 ${cross}g++)
+# set(CMAKE_C_COMPILER        ccache)
+# set(CMAKE_CXX_COMPILER      ccache)
+# set(CMAKE_C_COMPILER_ARG1   ${cross}gcc)
+# set(CMAKE_CXX_COMPILER_ARG1 ${cross}g++)
+set(CMAKE_C_COMPILER        ${cross}gcc)
+set(CMAKE_CXX_COMPILER      ${cross}g++)
 set(CMAKE_STRIP             ${cross}strip)
 set(CMAKE_SIZE              ${cross}size)
 set(CMAKE_NM                ${cross}nm)
@@ -26,8 +28,8 @@ add_definitions(
     -D__STDC_CONSTANT_MACROS
 )
 
-# C++98
-set(cxx_std_opt -std=gnu++98)
+# C++14
+set(cxx_std_opt -std=gnu++14)
 
 # C99
 set(c_std_opt -std=gnu99)
